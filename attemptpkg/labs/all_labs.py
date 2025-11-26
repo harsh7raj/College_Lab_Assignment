@@ -1,154 +1,130 @@
 def show_lab1():
     code = """
-# Program 1: Basic Neuron Model with Different Activation Functions
+#program 1
+import pandas as pd
+from scipy import stats
 
-import numpy as np
-import matplotlib.pyplot as plt
-plt.style.use('default')  
+df = pd.read_csv("Dataset_1.csv")
 
-# Basic Neuron
+# 1. Missing values + handling
+print(df.isnull().sum())
+df['Occupation'] = df['Occupation'].fillna('Unknown')
+df['Satisfaction_Level'] = df['Satisfaction_Level'].fillna(df['Satisfaction_Level'].mean())
+df = df.dropna(subset=['Income'])
+print("After fill/drop:\n", df.isnull().sum())
 
-class Neuron:
-    def __init__(self, input_size):
-        self.weights = np.random.rand(input_size)
-        self.bias = np.random.rand()
+# Impact (short note):
+# Filling Occupation adds a new category → may affect grouping results.
+# Filling Satisfaction_Level changes averages → may raise or lower mean satisfaction.
 
-    def forward(self, x):
-        return 1 / (1 + np.exp(-(np.dot(x, self.weights) + self.bias)))
+# 2. Custom binary Satisfaction_Level
+df['Sat_Binary'] = df['Satisfaction_Level'].apply(lambda x: 'High' if x>0.7 else 'Low')
+print(df['Sat_Binary'].head())
 
-input_size = 5
-num_samples = 100
-inputs = np.random.rand(num_samples, input_size)
+# 3. Map Purchase_History
+df['Purchase_Num'] = df['Purchase_History'].map({'High':2,'Medium':1,'Low':0})
+print(df['Purchase_Num'].head())
 
-neuron = Neuron(input_size)
-outputs = neuron.forward(inputs)
-print("Neuron outputs:\\n", outputs)
+# 4. Outliers (Z-score)
+df['Income_Z'] = stats.zscore(df['Income'])
+outliers = df[df['Income_Z'].abs()>3]
+print("Outliers:\n", outliers[['Income','Income_Z']])
 
-def sigmoid(x): return 1 / (1 + np.exp(-x))
-def tanh(x): return np.tanh(x)
-def relu(x): return np.maximum(0, x)
-def softmax(x): return np.exp(x) / np.sum(np.exp(x))
 
-# Plot 
-def plot_activation(x, y, title):
-    plt.figure(figsize=(8, 5))
-    plt.plot(x, y)
-    plt.title(title)
-    plt.grid(True)
-    plt.show()
+# 5. Missing Years_Employed + fill
+df['Years_Employed'] = df['Years_Employed'].fillna(df['Years_Employed'].median())
+print("Years_Employed missing after fill:", df['Years_Employed'].isnull().sum())
 
-# Plots
-
-x = np.linspace(-10, 10, 200)
-
-plot_activation(x, sigmoid(x), "Sigmoid Activation Function")
-plot_activation(x, tanh(x), "Hyperbolic Tangent Activation Function")
-plot_activation(x, relu(x), "ReLU Activation Function")
-
-t = np.linspace(-5, 5, 20)
-plot_activation(t, softmax(t), "Softmax Activation Function")
 """
     print(code)
 # This file contains all lab programs with show_labX() printers.
 
 def show_lab2():
     code = """
-# Program 2: Single Layer Perceptron
+#program 2
+import pandas as pd
+df = pd.read_csv("Dataset_2.csv")
 
-import numpy as np
+# 1. Fill missing Age + City
+df['Age'] = df['Age'].fillna(df['Age'].mean())
+df['City'] = df['City'].fillna('Unknown')
+print("After filling:\n", df[['Age','City']].head())
 
-class Perceptron:
-    def __init__(self, learning_rate=0.01, epochs=100):
-        self.lr = learning_rate
-        self.epochs = epochs
+# 2. Remove duplicates
+df = df.drop_duplicates()
+print("After removing duplicates:\n", df.head())
 
-    def fit(self, X, y):
-        self.weights = np.zeros(X.shape[1])
-        self.bias = 0.0
+# 3. Fix Gender values
+df['Gender'] = df['Gender'].replace({'M':'Male','F':'Female'})
+print("After fixing Gender:\n", df[['Gender']].head())
 
-        for _ in range(self.epochs):
-            for xi, yi in zip(X, y):
-                pred = self.predict(xi)
-                error = yi - pred
-                self.weights += self.lr * error * xi
-                self.bias += self.lr * error
+# 4. Age ranges
+df['Age_Group'] = pd.cut(df['Age'], bins=[18,30,40,50],
+                         labels=['18-30','30-40','40-50'])
+print("Age Groups:\n", df[['Age','Age_Group']].head())
 
-    def predict(self, x):
-        return 1 if (np.dot(x, self.weights) + self.bias) >= 0 else 0
+# 5. City → Dummy variables
+city_dummies = pd.get_dummies(df['City'], prefix='City')
+print("City Dummies:\n", city_dummies.head())
 
-# Example usage
-
-X_train = np.array([[2, 3], [1, 4], [3, 5], [4, 2]])
-y_train = np.array([0, 0, 1, 1])
-
-perceptron = Perceptron(learning_rate=0.01, epochs=100)
-perceptron.fit(X_train, y_train)
-
-new_data_point = np.array([2, 4])
-prediction = perceptron.predict(new_data_point)
-
-print(f"Prediction for {new_data_point}: {prediction}")
 """
     print(code)
 
 def show_lab3():
     code = """
-# Program 3: Multilayer Perceptron (MLP) Demonstrating Backpropagation Algorithm
-
-import numpy as np
+#program 3
 import pandas as pd
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
-# Load & prepare data
-iris = load_iris()
-df = pd.DataFrame(iris.data, columns=iris.feature_names)
-df['target'] = iris.target
+# Load data
+df_sales = pd.read_csv("Dataset_3_Sales.csv")
+df_fb = pd.read_csv("Dataset_3_Feedback.csv")
 
-X = df.iloc[:, :-1]
-y = df['target']
+# 1. Hierarchical Index (Product + Month)
+df_sales_h = df_sales.set_index(['Product','Month'])
+print("Hierarchical Index:\n", df_sales_h.head())
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# 2. Merge using different joins
+inner_join  = df_sales.merge(df_fb, on='OrderID', how='inner')
+left_join   = df_sales.merge(df_fb, on='OrderID', how='left')
+right_join  = df_sales.merge(df_fb, on='OrderID', how='right')
+outer_join  = df_sales.merge(df_fb, on='OrderID', how='outer')
 
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+print("\nInner Join:\n", inner_join.head())
+print("\nLeft Join:\n", left_join.head())
+print("\nRight Join:\n", right_join.head())
+print("\nOuter Join:\n", outer_join.head())
 
-# Build model
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=(4,)),
-    tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dense(16, activation='relu'),
-    tf.keras.layers.Dense(3, activation='softmax')
-])
+# 3. Vertical + Horizontal concatenation
+# (Assuming sales split by quarters)
+# If your data isn't split, you can reuse df_sales for demonstration.
+q1 = df_sales.copy()
+q2 = df_sales.copy()
+q3 = df_sales.copy()
+q4 = df_sales.copy()
 
-model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+vertical = pd.concat([q1, q2, q3, q4], axis=0)
+horizontal = pd.concat([q1, q2, q3, q4], axis=1)
 
-# Train
-history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.1)
+print("\nVertical Concatenation:\n", vertical.head())
+print("\nHorizontal Concatenation:\n", horizontal.head())
 
-# Evaluate
-loss, acc = model.evaluate(X_test, y_test)
-print("Test Accuracy:", acc)
+# 4. Function to combine Sales + Feedback & fill missing feedback
+def combine_fill_feedback(df_sales, df_fb):
+    merged = df_sales.merge(df_fb, on='OrderID', how='outer',
+                            suffixes=('_s','_f'))
+    # The Feedback_Score column exists only in df_fb, so it is not suffixed.
+    # It will already be named 'Feedback_Score' in the merged DataFrame.
+    # Any NaN values in this column would be due to OrderIDs present in df_sales but not df_fb.
+    # If you intend to fill these NaNs with a specific value, you would do it here.
+    # For now, we will simply return the merged DataFrame with the existing Feedback_Score column.
+    return merged
 
-# Plot accuracy
-plt.plot(history.history['accuracy'], label='train')
-plt.plot(history.history['val_accuracy'], label='val')
-plt.title("Accuracy")
-plt.legend()
-plt.grid(True)
-plt.show()
+combined = combine_fill_feedback(df_sales, df_fb)
+print("\nCombined with filled Feedback:\n", combined.head())
 
-# Plot loss
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='val')
-plt.title("Loss")
-plt.legend()
-plt.grid(True)
-plt.show()
+# 5. Pivot Sales Data (Product as rows, Month as columns, Sales as values)
+pivoted = df_sales.pivot(index='Product', columns='Month', values='Sales')
+print("\nPivot Table:\n", pivoted)
 """
     print(code)
 
@@ -223,538 +199,246 @@ plot(sgd_hist.history, "SGD", "SGD Accuracy")
 
 def show_lab5():
     code = """
-# Program 5: Dropout vs Gradient Clipping vs Early Stopping (Multitask Learning)
+#program 5
+import pandas as pd
+df = pd.read_csv("Dataset_5.csv")
 
-import numpy as np
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Flatten, Input
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import layers, callbacks
-from sklearn.datasets import make_classification, load_digits
-from sklearn.model_selection import train_test_split
+# 1. Total revenue by salesperson per date
+print("1:", df.pivot_table(values='revenue', index='salesperson', columns='date', aggfunc='sum'))
 
-# ===================== PART A =====================
+# 2. Average revenue per product
+print("2:", df.groupby('product')['revenue'].mean())
 
-# Dataset
-X, y = make_classification(n_samples=1000, n_features=20, n_classes=2)
-Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2)
+# 3. Max units sold in one transaction per salesperson
+print("3:", df.groupby('salesperson')['units_sold'].max())
 
-# Dropout model
-drop_model = Sequential([
-    Input(shape=(20,)),
-    Dense(64, activation='relu'),
-    Dropout(0.2),
-    Dense(32, activation='relu'),
-    Dropout(0.2),
-    Dense(1, activation='sigmoid')
-])
-drop_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-drop_hist = drop_model.fit(
-    Xtr, ytr, epochs=30, batch_size=32,
-    validation_data=(Xte, yte), verbose=0
-)
+# 4. % revenue by region
+reg = df.groupby('region')['revenue'].sum()
+print("4:", (reg / reg.sum()) * 100)
 
-# Gradient clipping model
-clip_model = Sequential([
-    Input(shape=(20,)),
-    Dense(64, activation='relu'),
-    Dense(32, activation='relu'),
-    Dense(1, activation='sigmoid')
-])
-clip_model.compile(
-    optimizer=Adam(clipnorm=1.0),
-    loss='binary_crossentropy',
-    metrics=['accuracy']
-)
-clip_hist = clip_model.fit(
-    Xtr, ytr, epochs=30, batch_size=32,
-    validation_data=(Xte, yte), verbose=0
-)
+# 5. Salesperson with most transactions
+print("5:", df['salesperson'].value_counts())
 
-# Plot accuracy comparison
-plt.plot(drop_hist.history['accuracy'], label='Dropout Train')
-plt.plot(drop_hist.history['val_accuracy'], label='Dropout Val')
-plt.plot(clip_hist.history['accuracy'], label='Clip Train')
-plt.plot(clip_hist.history['val_accuracy'], label='Clip Val')
-plt.legend()
-plt.grid()
-plt.title("Dropout vs Gradient Clipping Accuracy")
-plt.show()
+# 6. Pivot: total revenue + total units sold by salesperson × product
+print("6:", df.pivot_table(values=['revenue','units_sold'],
+                           index='salesperson',
+                           columns='product',
+                           aggfunc='sum'))
 
+# 7. Units sold per region per date
+print("7:", df.pivot_table(values='units_sold', index='region', columns='date', aggfunc='sum'))
 
-# ===================== PART B =====================
-
-digits = load_digits()
-X = digits.images / 16.0
-y = digits.target
-yp = y % 2  # parity (even/odd)
-
-Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2)
-ypr = yp[:len(ytr)]
-
-# Show samples
-plt.figure(figsize=(5, 5))
-for i in range(16):
-    plt.subplot(4, 4, i + 1)
-    plt.imshow(Xtr[i], cmap='gray')
-    plt.axis("off")
-plt.show()
-
-# Multitask model
-inp = Input(shape=(8, 8))
-x = Flatten()(inp)
-x = Dense(64, 'relu')(x)
-digit_out = Dense(10, 'softmax')(x)
-parity_out = Dense(1, 'sigmoid')(x)
-
-mt_model = tf.keras.Model(inp, [digit_out, parity_out])
-mt_model.compile(
-    optimizer="adam",
-    loss=["sparse_categorical_crossentropy", "binary_crossentropy"],
-    metrics=[["accuracy"], ["accuracy"]]
-)
-
-es = callbacks.EarlyStopping(
-    monitor='val_loss', patience=5, restore_best_weights=True
-)
-
-hist = mt_model.fit(
-    Xtr, [ytr, ypr],
-    validation_split=0.2,
-    epochs=30,
-    callbacks=[es],
-    verbose=1
-)
-
-# Early stopping visualization
-stop_ep = np.argmin(hist.history['val_loss']) + 1
-plt.plot(hist.history['loss'], label='Train')
-plt.plot(hist.history['val_loss'], label='Val')
-plt.axvline(stop_ep, color='r', linestyle='--', label=f'Stopped @ Epoch {stop_ep}')
-plt.legend()
-plt.grid()
-plt.title("Early Stopping - Loss Curve")
-plt.show()
 """
     print(code)
 
 def show_lab6():
     code = """
-# Program 6: Adversarial Training, Tangent Distance, and Tangent Classifier
-
-import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
-print("---- Implementing Adversarial Training, Tangent Distance and Tangent Classifier ----")
+# Load datasets
+g = pd.read_csv("Dataset_6_Games.csv")
+p = pd.read_csv("Dataset_6_Players.csv")
 
-# ---------------- DATA ----------------
-np.random.seed(0)
-n = 200
-X = np.random.randn(n, 2)
-y = (X[:, 0] * X[:, 1] > 0).astype(int).reshape(-1, 1)
+# 1. Points change over the season
+print("1. Points over season:\n", g[['Game_ID','Team_Points']])
+plt.plot(g['Game_ID'], g['Team_Points'])
+plt.title("Points Over The Season")
+plt.xlabel("Game Number")
+plt.ylabel("Points Scored")
+plt.show()
 
-print("\\n[1] Adversarial Training Started...")
+# 2. Average attendance
+# Removed as 'attendance' column does not exist
+print("2. Average attendance:", g['Attendance'].mean())
 
-# ---------------- MODEL ----------------
-W = np.random.randn(2, 1)
-b = 0.0
-sig = lambda z: 1 / (1 + np.exp(-z))
-lr, eps = 0.1, 0.2
+# 3. Player who scored most + bar chart
+player_points = p.groupby('Player')['Points'].sum()
+print("3. Top scorer:", player_points.idxmax())
+player_points.plot(kind='bar')
+plt.title("Total Points by Player")
+plt.xlabel("Player")
+plt.ylabel("Total Points")
+plt.show()
 
-loss_history = []
+# 4. Games scored above threshold + scoring ranges bar chart
+threshold = 100
+print("4. Games above threshold:", (g['Team_Points'] > threshold).sum())
 
-# ---------------- ADVERSARIAL TRAINING ----------------
-for i in range(1, 101):   # 100 iterations
-    p = sig(X @ W + b)
-    grad_x = (p - y) @ W.T
-    X_adv = X + eps * np.sign(grad_x)
+bins = [80, 90, 100, 110, 120]
+g['range'] = pd.cut(g['Team_Points'], bins)
+g['range'].value_counts().sort_index().plot(kind='bar')
+plt.title("Number of Games in Score Ranges")
+plt.xlabel("Score Range")
+plt.ylabel("Number of Games")
+plt.show()
 
-    X_all = np.vstack([X, X_adv])
-    y_all = np.vstack([y, y])
+# 5. Best performance vs opponents + bar chart
+opp_points = g.groupby('Opponent')['Team_Points'].mean()
+print("5. Best opponent:", opp_points.idxmax())
+opp_points.plot(kind='bar')
+plt.title("Average Points vs Opponents")
+plt.xlabel("Opponent")
+plt.ylabel("Avg Points Scored")
+plt.show()
 
-    p_all = sig(X_all @ W + b)
-    e = p_all - y_all
+#6. Attendance vs opponents bar chart
+print("6. Attendace vs opponents")
+g.groupby('Opponent')['Attendance'].mean().plot(kind='bar')
+plt.title("Average Attendance vs Opponents")
+plt.xlabel("Opponent")
+plt.ylabel("Average Attendance")
+plt.show()
 
-    W -= lr * X_all.T @ e / len(X_all)
-    b -= lr * e.mean()
-
-    loss = np.mean(e ** 2)
-    loss_history.append(loss)
-
-    if i <= 5 or i % 20 == 0:
-        print(f"Iteration {i} loss = {loss}")
-
-print("[1] Adversarial Training Completed.")
-
-# ---------------- TANGENT DISTANCE ----------------
-print("\\n[2] Computing Tangent Distance...")
-
-def tan_dist(x, z):
-    t = np.array([-x[1], x[0]])           
-    a = np.dot(z - x, t) / np.dot(t, t)
-    return np.linalg.norm((x + a * t) - z)
-
-sample_td = tan_dist(X[0], X[1])
-print(f"Tangent distance = {sample_td}")
-
-# ---------------- TANGENT CLASSIFIER ----------------
-print("\\n[3] Tangent Classifier Evaluation Started...")
-
-def tan_classify(x, Xtr, ytr):
-    d = [tan_dist(x, xi) for xi in Xtr]
-    return ytr[np.argmin(d)]
-
-pred = np.array([tan_classify(x, X, y.ravel()) for x in X]).reshape(-1, 1)
-acc = (pred == y).mean()
-
-print(f"[3] Tangent Classifier Accuracy: {acc*100:.2f}%")
-print("\\n---- Program Successfully Implemented (Three Techniques Completed) ----")
-
-# ---------------- LOSS PLOT ----------------
-plt.plot(loss_history)
-plt.title("Adversarial Training Loss (Loss vs Iterations)")
-plt.xlabel("Iterations")
-plt.ylabel("Loss")
-plt.grid()
+# 7. Win-Loss record vs points scored (grouped bar chart)
+g['Win_Loss_Indicator'] = g.apply(lambda row: 'Win' if row['Team_Points'] > row['Opponent_Points'] else 'Loss', axis=1)
+wl_points = g.groupby('Win_Loss_Indicator')['Team_Points'].mean()
+wl_points.plot(kind='bar')
+plt.title("Average Points: Wins vs Losses")
+plt.xlabel("Win / Loss")
+plt.ylabel("Avg Points")
 plt.show()
 """
     print(code)
 
 def show_lab7():
     code = """
-# Program 7: MNIST Dataset Classification using CNN
-
-import tensorflow as tf
-from tensorflow.keras import layers, models
+#program 7
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Load + preprocess MNIST
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-x_train, x_test = x_train[..., None] / 255.0, x_test[..., None] / 255.0
+df = pd.read_csv("Dataset_7.csv")
 
-# One-hot encode
-y_train = tf.keras.utils.to_categorical(y_train)
-y_test  = tf.keras.utils.to_categorical(y_test)
+df['date'] = pd.to_datetime(df['date'])
+df['day']  = df['date'].dt.day_name()
 
-# Build CNN
-model = models.Sequential([
-    layers.Conv2D(32, 3, activation='relu', input_shape=(28,28,1)),
-    layers.MaxPooling2D(),
-    layers.Dropout(0.25),
+# 1. Heatmap: trips by day of week and base (no hours available)
+p1 = df.pivot_table(values='trips', index='day', columns='dispatching_base_number', aggfunc='sum')
+sns.heatmap(p1); plt.title("Heatmap: Trips by Day & Base"); plt.show()
 
-    layers.Conv2D(64, 3, activation='relu'),
-    layers.MaxPooling2D(),
-    layers.Dropout(0.25),
+# 2. Line chart: trips across a month (example: January)
+jan = df[df['date'].dt.month == 1]
+jan.groupby(jan['date'].dt.date)['trips'].sum().plot()
+plt.title("Trips Trend - January"); plt.ylabel("Trips"); plt.show()
 
-    layers.Flatten(),
-    layers.Dense(128, activation='relu'),
-    layers.Dropout(0.5),
-    layers.Dense(10, activation='softmax')
-])
+# 3. Bubble chart: total trips per dispatching base
+reg = df.groupby('dispatching_base_number')['trips'].sum()
 
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
-# Train
-history = model.fit(
-    x_train, y_train,
-    epochs=5,
-    batch_size=128,
-    validation_data=(x_test, y_test),
-    verbose=2
-)
-
-# Evaluate
-print("Test Accuracy:", model.evaluate(x_test, y_test, verbose=0)[1])
-
-# Plots
-plt.figure(figsize=(10,4))
-
-plt.subplot(1,2,1)
-plt.plot(history.history['accuracy'], label='train')
-plt.plot(history.history['val_accuracy'], label='val')
-plt.title("Accuracy")
-plt.legend()
-
-plt.subplot(1,2,2)
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='val')
-plt.title("Loss")
-plt.legend()
-
-plt.tight_layout()
+plt.figure(figsize=(10,6))
+plt.scatter(reg.index, reg.values, s=reg.values*0.1)
+plt.title("Bubble Chart: Trips by Dispatching Base")
+plt.xlabel("Dispatching Base")
+plt.ylabel("Total Trips")
 plt.show()
 
-
-OR
-
-
-
-import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from tensorflow.keras.models import Sequential
-import matplotlib.pyplot as plt
-
-# Load + preprocess MNIST
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-x_train, x_test = x_train[...,None]/255.0, x_test[...,None]/255.0
-
-# One-hot encode
-y_train = tf.keras.utils.to_categorical(y_train)
-y_test  = tf.keras.utils.to_categorical(y_test)
-
-# Build CNN
-model = Sequential([
-    Conv2D(16, 3, activation='relu', input_shape=(28,28,1)),
-    MaxPooling2D(),
-    Flatten(),
-    Dense(10, activation='softmax')
-])
-
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
-# Train
-history = model.fit(
-    x_train, y_train,
-    epochs=5, batch_size=128,
-    validation_data=(x_test, y_test),
-    verbose=2
-)
-
-# Evaluate
-print("Test Accuracy:", model.evaluate(x_test, y_test, verbose=0)[1])
-
-# Plots
-plt.figure(figsize=(10,4))
-plt.subplot(1,2,1)
-plt.plot(history.history['accuracy'], label='train')
-plt.plot(history.history['val_accuracy'], label='val')
-plt.title("Accuracy"); plt.legend()
-
-plt.subplot(1,2,2)
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='val')
-plt.title("Loss"); plt.legend()
-
-plt.tight_layout(); plt.show()
 """
     print(code)
 
 def show_lab8():
     code = """
-# Program 8: IMDB Sentiment Analysis using RNN
-
-import tensorflow as tf
-from tensorflow.keras.datasets import imdb
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, SimpleRNN, Dense
+#program 8
+import pandas as pd
 import matplotlib.pyplot as plt
 
-max_features, maxlen = 10000, 200
-(x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=max_features)
+df = pd.read_csv("Dataset_8.csv")
 
-x_train = pad_sequences(x_train, maxlen=maxlen)
-x_test  = pad_sequences(x_test,  maxlen=maxlen)
-
-model = Sequential([
-    Embedding(max_features, 50, input_length=maxlen),
-    SimpleRNN(64, dropout=0.2, recurrent_dropout=0.2),
-    Dense(1, activation='sigmoid')
-])
-
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-
-history = model.fit(
-    x_train, y_train,
-    epochs=5,
-    batch_size=128,
-    validation_data=(x_test, y_test),
-    verbose=2
-)
-
-loss, acc = model.evaluate(x_test, y_test, verbose=0)
-print("Test Accuracy:", acc)
-
-plt.figure(figsize=(10,4))
-
-plt.subplot(1,2,1)
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title("Accuracy")
-
-plt.subplot(1,2,2)
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title("Loss")
-
-plt.tight_layout()
+# 1. Bar chart: survival rate by Pclass
+df.groupby('Pclass')['Survived'].mean().plot(kind='bar')
+plt.title("Survival Rate by Passenger Class")
+plt.ylabel("Survival Rate")
 plt.show()
+
+# 2. Pie chart: survivors vs non-survivors
+df['Survived'].value_counts().plot(kind='pie', autopct='%1.1f%%')
+plt.title("Survivors vs Non-Survivors")
+plt.ylabel("")
+plt.show()
+
+# 3. Stacked bar chart: survivors vs non-survivors by Pclass & Sex
+tab = df.groupby(['Pclass','Sex'])['Survived'].value_counts().unstack().fillna(0)
+tab.plot(kind='bar', stacked=True)
+plt.title("Survival Count by Class & Sex")
+plt.ylabel("Count")
+plt.show()
+
 """
     print(code)
 
 
 def show_lab9():
     code = """
-# Program 9: Yahoo Finance Stock Prediction using GRU
-
-import yfinance as yf
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import GRU, Dense
+#program 9
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# ---- Load Data ----
-ticker = "AAPL"   # change as needed
-df = yf.download(ticker, period="5y")["Close"].values.reshape(-1, 1)
+df = pd.read_csv("Dataset_9.csv")
 
-# ---- Scale ----
-mn, mx = df.min(), df.max()
-data = (df - mn) / (mx - mn)
-
-# ---- Create sequences ----
-seq = 60
-X, y = [], []
-for i in range(len(data) - seq):
-    X.append(data[i:i+seq])
-    y.append(data[i+seq])
-X, y = np.array(X), np.array(y)
-
-# ---- GRU Model ----
-model = Sequential([
-    GRU(64, input_shape=(seq, 1)),
-    Dense(1)
-])
-model.compile(optimizer='adam', loss='mse')
-
-model.fit(X, y, epochs=5, batch_size=32, verbose=1)
-
-# ---- Predictions ----
-pred = model.predict(X)
-pred_rescaled = pred * (mx - mn) + mn
-y_rescaled = y * (mx - mn) + mn
-
-# ---- Plot ----
-plt.figure(figsize=(10,5))
-plt.plot(y_rescaled, label="Actual")
-plt.plot(pred_rescaled, label="Predicted")
-plt.title(f"{ticker} Stock Price Prediction (GRU)")
-plt.xlabel("Days")
-plt.ylabel("Price")
-plt.legend()
-plt.grid()
+# 1. Scatter plot: GrLivArea vs SalePrice
+plt.scatter(df['GrLivArea'], df['SalePrice'])
+plt.xlabel("GrLivArea"); plt.ylabel("SalePrice")
+plt.title("GrLivArea vs SalePrice")
 plt.show()
 
-
-OR
-
-
-
-# Program 9: Stock Prediction using GRU (standardized like Program 10)
-
-import numpy as np
-import yfinance as yf
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import GRU, Dense
-
-# ---- Load data ----
-data = yf.download("AAPL", start="2010-01-01", end="2023-01-01")[['Open']]
-
-# ---- Scale ----
-scaler = MinMaxScaler()
-scaled = scaler.fit_transform(data)
-
-# ---- Create sequences ----
-X, y = [], []
-for i in range(60, len(scaled)):
-    X.append(scaled[i-60:i])
-    y.append(scaled[i])
-X, y = np.array(X), np.array(y)
-
-# ---- Train/Test split ----
-split = int(len(X) * 0.8)
-X_train, X_test = X[:split], X[split:]
-y_train, y_test = y[:split], y[split:]
-
-# ---- Build GRU model ----
-model = Sequential([
-    GRU(50, return_sequences=False, input_shape=(60, 1)),
-    Dense(1)
-])
-model.compile(optimizer='adam', loss='mse')
-
-# ---- Train ----
-model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
-
-# ---- Predict ----
-pred = scaler.inverse_transform(model.predict(X_test))
-real = scaler.inverse_transform(y_test)
-
-# ---- Plot ----
-plt.plot(real, label='Real')
-plt.plot(pred, label='Predicted')
-plt.title("GRU Stock Prediction")
-plt.legend()
+# 2. Heatmap of correlations
+num_cols = ['GrLivArea','OverallQual','TotalBsmtSF','SalePrice','YearBuilt']
+sns.heatmap(df[num_cols].corr(), annot=True)
+plt.title("Correlation Heatmap")
 plt.show()
+
+# 3. Bubble chart: size = OverallQual
+plt.scatter(df['GrLivArea'], df['SalePrice'], s=df['OverallQual']*20, alpha=0.5)
+plt.xlabel("GrLivArea"); plt.ylabel("SalePrice")
+plt.title("Bubble Chart: Qual as Size")
+plt.show()
+
 """
     print(code)
 
 
 def show_lab10():
     code = """
-# Program 10: Stock Prediction using LSTM
-
-import numpy as np
-import yfinance as yf
+#program 10
+!pip install squarify
+import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+import seaborn as sns
+import squarify
 
-# ---- Load data ----
-data = yf.download("AAPL", start="2010-01-01", end="2023-01-01")[['Open']]
-scaler = MinMaxScaler()
-scaled = scaler.fit_transform(data)
+df = pd.read_csv("Dataset_10.csv")
 
-# ---- Create sequences ----
-X, y = [], []
-for i in range(60, len(scaled)):
-    X.append(scaled[i-60:i])
-    y.append(scaled[i])
-X, y = np.array(X), np.array(y)
+# Use only the first listed position
+df['MainPos'] = df['player_positions'].str.split(',').str[0]
 
-# ---- Train/Test split ----
-split = int(len(X) * 0.8)
-X_train, X_test = X[:split], X[split:]
-y_train, y_test = y[:split], y[split:]
-
-# ---- Build LSTM ----
-model = Sequential([
-    LSTM(50, return_sequences=True, input_shape=(60, 1)),
-    Dropout(0.2),
-    LSTM(50),
-    Dropout(0.2),
-    Dense(1)
-])
-model.compile(optimizer='adam', loss='mse')
-
-# ---- Train ----
-model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=1)
-
-# ---- Predict ----
-pred = scaler.inverse_transform(model.predict(X_test))
-real = scaler.inverse_transform(y_test)
-
-# ---- Plot ----
-plt.plot(real, label='Real')
-plt.plot(pred, label='Predicted')
-plt.title("LSTM Stock Prediction")
-plt.legend()
+# 1. Bar chart: number of players per position
+df['MainPos'].value_counts().plot(kind='bar')
+plt.title("Players per Position"); plt.ylabel("Count")
 plt.show()
+
+# 2. Donut chart: rating distribution by position
+bins = [0,60,70,80,90,100]
+df['RatingRange'] = pd.cut(df['overall'], bins)
+sizes = df['RatingRange'].value_counts()
+plt.pie(sizes, labels=sizes.index, autopct='%1.1f%%')
+plt.title("Rating Distribution")
+plt.gca().add_artist(plt.Circle((0,0),0.70,color='white'))
+plt.show()
+
+# 3. Treemap (tree diagram): overall rating grouped by position
+data = df.groupby('MainPos')['overall'].sum()
+squarify.plot(sizes=data.values, label=data.index)
+plt.title("Treemap: Total Rating by Position")
+plt.axis('off')
+plt.show()
+
+# 4. Interpretation
+print("""
+Bar Chart → Shows which positions have the most players.
+Donut Chart → Shows how overall ratings are distributed across ranges.
+Treemap → Shows the hierarchical structure: which positions contribute most
+           to total rating across the dataset.
+""")
 """
     print(code)
 
