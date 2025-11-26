@@ -433,12 +433,12 @@ plt.axis('off')
 plt.show()
 
 # 4. Interpretation
-print("""
-Bar Chart → Shows which positions have the most players.
-Donut Chart → Shows how overall ratings are distributed across ranges.
-Treemap → Shows the hierarchical structure: which positions contribute most
+print('
+Bar Chart : Shows which positions have the most players.
+Donut Chart : Shows how overall ratings are distributed across ranges.
+Treemap : Shows the hierarchical structure: which positions contribute most
            to total rating across the dataset.
-""")
+')
 """
     print(code)
 
