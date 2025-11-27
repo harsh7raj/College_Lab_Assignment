@@ -72,59 +72,30 @@ print("City Dummies:\n", city_dummies.head())
 
 def show_lab3():
     code = """
-#program 3
+#lab 3
 import pandas as pd
-
-# Load data
-df_sales = pd.read_csv("Dataset_3_Sales.csv")
-df_fb = pd.read_csv("Dataset_3_Feedback.csv")
-
-# 1. Hierarchical Index (Product + Month)
-df_sales_h = df_sales.set_index(['Product','Month'])
-print("Hierarchical Index:\n", df_sales_h.head())
-
-# 2. Merge using different joins
-inner_join  = df_sales.merge(df_fb, on='OrderID', how='inner')
-left_join   = df_sales.merge(df_fb, on='OrderID', how='left')
-right_join  = df_sales.merge(df_fb, on='OrderID', how='right')
-outer_join  = df_sales.merge(df_fb, on='OrderID', how='outer')
-
-print("\nInner Join:\n", inner_join.head())
-print("\nLeft Join:\n", left_join.head())
-print("\nRight Join:\n", right_join.head())
-print("\nOuter Join:\n", outer_join.head())
-
-# 3. Vertical + Horizontal concatenation
-# (Assuming sales split by quarters)
-# If your data isn't split, you can reuse df_sales for demonstration.
-q1 = df_sales.copy()
-q2 = df_sales.copy()
-q3 = df_sales.copy()
-q4 = df_sales.copy()
-
-vertical = pd.concat([q1, q2, q3, q4], axis=0)
-horizontal = pd.concat([q1, q2, q3, q4], axis=1)
-
-print("\nVertical Concatenation:\n", vertical.head())
-print("\nHorizontal Concatenation:\n", horizontal.head())
-
-# 4. Function to combine Sales + Feedback & fill missing feedback
-def combine_fill_feedback(df_sales, df_fb):
-    merged = df_sales.merge(df_fb, on='OrderID', how='outer',
-                            suffixes=('_s','_f'))
-    # The Feedback_Score column exists only in df_fb, so it is not suffixed.
-    # It will already be named 'Feedback_Score' in the merged DataFrame.
-    # Any NaN values in this column would be due to OrderIDs present in df_sales but not df_fb.
-    # If you intend to fill these NaNs with a specific value, you would do it here.
-    # For now, we will simply return the merged DataFrame with the existing Feedback_Score column.
-    return merged
-
-combined = combine_fill_feedback(df_sales, df_fb)
-print("\nCombined with filled Feedback:\n", combined.head())
-
-# 5. Pivot Sales Data (Product as rows, Month as columns, Sales as values)
-pivoted = df_sales.pivot(index='Product', columns='Month', values='Sales')
-print("\nPivot Table:\n", pivoted)
+import numpy as np
+sales_df=pd.read_csv('Dataset_3_Sales.csv')
+feedback_df=pd.read_csv('Dataset_3_Feedback.csv')
+#1
+hierarchy = sales_df.set_index(["Product","Month"])
+print(hierarchy)       
+#2
+inner = sales_df.merge(feedback_df, on = "OrderID", how = 'inner')
+print(inner)   
+#3
+q1 = sales_df.copy()
+q2 = sales_df.copy()
+vertical_concat = pd.concat([q1,q2],axis = 0)
+horizontal_concat = pd.concat([q1,q2],axis = 1)
+print(vertical_concat)
+print(" ")
+print(horizontal_concat)
+#4
+merged = pd.merge(sales_df, feedback_df, on = "OrderID", how = 'outer')
+#5
+pivoted = sales_df.pivot(index = 'Product', columns = 'Month', values = 'Sales')
+print(pivoted)
 """
     print(code)
 
