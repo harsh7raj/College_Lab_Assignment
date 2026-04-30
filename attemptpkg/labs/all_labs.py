@@ -1,39 +1,55 @@
 def show_lab1():
     code = """
-#program 1
-import pandas as pd
-from scipy import stats
+# 1.Fuzzy Logic: Temperature to Fan Speed
 
-df = pd.read_csv("Dataset_1.csv")
+def low_temp(x):
+    if x <= 20:
+        return 1
+    elif 20 < x < 30:
+        return (30 - x) / 10
+    else:
+        return 0
 
-# 1. Missing values + handling
-print(df.isnull().sum())
-df['Occupation'] = df['Occupation'].fillna('Unknown')
-df['Satisfaction_Level'] = df['Satisfaction_Level'].fillna(df['Satisfaction_Level'].mean())
-df = df.dropna(subset=['Income'])
-print("After fill/drop:\n", df.isnull().sum())
+def medium_temp(x):
+    if 20 < x < 30:
+        return (x - 20) / 10
+    elif 30 <= x <= 40:
+        return (40 - x) / 10
+    else:
+        return 0
 
-# Impact (short note):
-# Filling Occupation adds a new category → may affect grouping results.
-# Filling Satisfaction_Level changes averages → may raise or lower mean satisfaction.
+def high_temp(x):
+    if x <= 30:
+        return 0
+    elif 30 < x < 40:
+        return (x - 30) / 10
+    else:
+        return 1
 
-# 2. Custom binary Satisfaction_Level
-df['Sat_Binary'] = df['Satisfaction_Level'].apply(lambda x: 'High' if x>0.7 else 'Low')
-print(df['Sat_Binary'].head())
+def fuzzy_logic(temp):
+  #Fuzzification
+    low = low_temp(temp)
+    medium = medium_temp(temp)
+    high = high_temp(temp)
 
-# 3. Map Purchase_History
-df['Purchase_Num'] = df['Purchase_History'].map({'High':2,'Medium':1,'Low':0})
-print(df['Purchase_Num'].head())
+    print(f"Low membership:    {low}")
+    print(f"Medium membership: {medium}")
+    print(f"High membership:   {high}")
 
-# 4. Outliers (Z-score)
-df['Income_Z'] = stats.zscore(df['Income'])
-outliers = df[df['Income_Z'].abs()>3]
-print("Outliers:\n", outliers[['Income','Income_Z']])
+    numerator = (low * 20) + (medium * 50) + (high * 80)
+    denominator = low + medium + high
 
+    if denominator == 0:
+        return 0
 
-# 5. Missing Years_Employed + fill
-df['Years_Employed'] = df['Years_Employed'].fillna(df['Years_Employed'].median())
-print("Years_Employed missing after fill:", df['Years_Employed'].isnull().sum())
+    # Defuzzification
+    speed = numerator / denominator
+    return speed
+
+# Input
+temp = float(input("Enter temperature: "))
+speed = fuzzy_logic(temp)
+print(f"\nFinal Fan Speed: {speed:.2f}")
 
 """
     print(code)
@@ -41,297 +57,324 @@ print("Years_Employed missing after fill:", df['Years_Employed'].isnull().sum())
 
 def show_lab2():
     code = """
-#program 2
-import pandas as pd
-df = pd.read_csv("Dataset_2.csv")
-
-# 1. Fill missing Age + City
-df['Age'] = df['Age'].fillna(df['Age'].mean())
-df['City'] = df['City'].fillna('Unknown')
-print("After filling:\n", df[['Age','City']].head())
-
-# 2. Remove duplicates
-df = df.drop_duplicates()
-print("After removing duplicates:\n", df.head())
-
-# 3. Fix Gender values
-df['Gender'] = df['Gender'].replace({'M':'Male','F':'Female'})
-print("After fixing Gender:\n", df[['Gender']].head())
-
-# 4. Age ranges
-df['Age_Group'] = pd.cut(df['Age'], bins=[18,30,40,50],
-                         labels=['18-30','30-40','40-50'])
-print("Age Groups:\n", df[['Age','Age_Group']].head())
-
-# 5. City → Dummy variables
-city_dummies = pd.get_dummies(df['City'], prefix='City')
-print("City Dummies:\n", city_dummies.head())
+#2 copy Defuzzification using Centroid Method
+def alpha_cut(fs, lam):
+    result = []
+    for k in fs:
+        if fs[k] >= lam:
+            result.append(k)
+    return result
+# Mean of Maximum (MOM)
+def mom(fs):
+    max_val = None
+    for k in fs:
+        if max_val is None or fs[k] > max_val:
+            max_val = fs[k]
+    total = 0
+    count = 0
+    for k in fs:
+        if fs[k] == max_val:
+            total += k
+            count += 1
+    return total / count
+def cog(fs):
+    numerator = 0
+    denominator = 0
+    for i in fs:
+        numerator += i*fs[i]
+        denominator += fs[i]
+    if denominator == 0:
+        return 0
+    return numerator / denominator
+# Example fuzzy output values
+fs1 = {"Low": 0.2, "Medium": 0.7, "High": 0.5}
+print("Alpha-cut:", alpha_cut(fs1, 0.5))
+fs2 = {1:0.2, 2:0.5, 3:0.8, 4:0.5}
+print("MOM:", mom(fs2))
+print("COG:", cog(fs2))
 
 """
     print(code)
 
 def show_lab3():
     code = """
-#lab 3
-import pandas as pd
-import numpy as np
-sales_df=pd.read_csv('Dataset_3_Sales.csv')
-feedback_df=pd.read_csv('Dataset_3_Feedback.csv')
-#1
-hierarchy = sales_df.set_index(["Product","Month"])
-print(hierarchy)       
-#2
-inner = sales_df.merge(feedback_df, on = "OrderID", how = 'inner')
-print(inner)   
-#3
-q1 = sales_df.copy()
-q2 = sales_df.copy()
-vertical_concat = pd.concat([q1,q2],axis = 0)
-horizontal_concat = pd.concat([q1,q2],axis = 1)
-print(vertical_concat)
-print(" ")
-print(horizontal_concat)
-#4
-merged = pd.merge(sales_df, feedback_df, on = "OrderID", how = 'outer')
-#5
-pivoted = sales_df.pivot(index = 'Product', columns = 'Month', values = 'Sales')
-print(pivoted)
+#3.ACO
+import random
+ 
+# Distance matrix
+dist = [
+    [0, 12,  5, 20,  8],
+    [12,  0, 15,  3, 18],
+    [ 5, 15,  0,  9, 14],
+    [20,  3,  9,  0,  7],
+    [ 8, 18, 14,  7,  0]
+]
+n = len(dist)
+ 
+# Parameters
+ANTS, ITERS, ALPHA, BETA, EVAP = 5, 10, 1, 2, 0.5
+ 
+# Pheromone matrix
+pher = [[1.0] * n for _ in range(n)]
+ 
+def next_city(cur, visited):
+    probs = []
+    for j in range(n):
+        if j not in visited:
+            tau = pher[cur][j] ** ALPHA
+            eta = (1 / dist[cur][j]) ** BETA if dist[cur][j] else 0
+            probs.append((j, tau * eta))
+    total = sum(p for _, p in probs)
+    if not total:
+        return random.choice([c for c in range(n) if c not in visited])
+    r, s = random.uniform(0, total), 0
+    for city, p in probs:
+        s += p
+        if s >= r:
+            return city
+ 
+def path_len(path):
+    return sum(dist[path[i]][path[i+1]] for i in range(len(path)-1))
+ 
+best_path, best_len = None, float('inf')
+ 
+for t in range(ITERS):
+    all_paths = []
+    for _ in range(ANTS):
+        path = [random.randint(0, n-1)]
+        visited = set(path)
+        while len(path) < n:
+            path.append(next_city(path[-1], visited))
+            visited.add(path[-1])
+        if len(path) == n:
+            l = path_len(path)
+            all_paths.append((path, l))
+            if l < best_len:
+                best_len, best_path = l, path
+ 
+    # Evaporate
+    for i in range(n):
+        for j in range(n):
+            pher[i][j] *= (1 - EVAP)
+ 
+    # Deposit
+    for path, l in all_paths:
+        if l:
+            for i in range(len(path)-1):
+                pher[path[i]][path[i+1]] += 1 / l
+ 
+    print(f"Iter {t+1:2d} | Best: {' -> '.join(map(str, best_path))} | Cost: {best_len}")
+ 
+print("=" * 45)
+print(f"Best Path : {' -> '.join(map(str, best_path))}")
+print(f"Best Cost : {best_len}")
 """
     print(code)
 
 
 def show_lab4():
     code = """
-# Program 4: Gradient Descent (GD) vs Stochastic Gradient Descent (SGD)
+import random #4.PSO
 
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import SGD
-import matplotlib.pyplot as plt
+# Objective function (minimize)
+def fitness(x):
+    return x**2
 
-# Load + preprocess
-X, y = load_iris().data, load_iris().target.reshape(-1, 1)
-y = OneHotEncoder(sparse_output=False).fit_transform(y)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-sc = StandardScaler()
-X_train, X_test = sc.fit_transform(X_train), sc.transform(X_test)
+# Parameters
+num_particles = 5
+iterations = 10
+w = 0.5       # inertia
+c1 = 1        # cognitive
+c2 = 2        # social
 
-# Model builder
-def build(): 
-    return Sequential([
-        Dense(64, activation='relu', input_shape=(4,)),
-        Dense(32, activation='relu'),
-        Dense(3, activation='softmax')
-    ])
+# Initialize particles
+particles = [random.uniform(-10, 10) for _ in range(num_particles)]
+velocities = [random.uniform(-1, 1) for _ in range(num_particles)]
+pBest = particles[:]
+gBest = min(particles, key=fitness)
 
-# Train GD
-gd = build()
-gd.compile(optimizer=SGD(0.01), loss='categorical_crossentropy', metrics=['accuracy'])
-gd_hist = gd.fit(
-    X_train, y_train, 
-    epochs=50, batch_size=32, 
-    validation_data=(X_test, y_test), 
-    verbose=0
-)
+for i in range(iterations):
+    for j in range(num_particles):
+        r1 = random.random()
+        r2 = random.random()
 
-# Train SGD
-sgd = build()
-sgd.compile(optimizer=SGD(0.01), loss='categorical_crossentropy', metrics=['accuracy'])
-sgd_hist = sgd.fit(
-    X_train, y_train, 
-    epochs=50, batch_size=1, 
-    validation_data=(X_test, y_test), 
-    verbose=0
-)
+        # Update velocity
+        velocities[j] = (w * velocities[j] +
+                         c1 * r1 * (pBest[j] - particles[j]) +
+                         c2 * r2 * (gBest - particles[j]))
 
-# Plotter
-def plot(h, key, title):
-    plt.plot(h['accuracy'], label='Train '+key)
-    plt.plot(h['val_accuracy'], label='Val '+key)
-    plt.title(title)
-    plt.legend()
-    plt.grid()
-    plt.show()
+        # Update position
+        particles[j] += velocities[j]
 
-    plt.plot(h['loss'], label='Train '+key)
-    plt.plot(h['val_loss'], label='Val '+key)
-    plt.title(title + " Loss")
-    plt.legend()
-    plt.grid()
-    plt.show()
+        # Update Pbest
+        if fitness(particles[j]) < fitness(pBest[j]):
+            pBest[j] = particles[j]
 
-plot(gd_hist.history, "GD", "GD Accuracy")
-plot(sgd_hist.history, "SGD", "SGD Accuracy")
+    # Update Gbest
+    gBest = min(pBest, key=fitness)
+    print(f"Iteration {i+1}: gBest = {round(gBest, 4)}, f(x) = {round(fitness(gBest), 6)}")
+
+print("\nBest Position (Solution):", round(gBest, 4))
+print("Minimum Value:", round(fitness(gBest), 4))
 """
     print(code)
 
 def show_lab5():
     code = """
-#program 5
-import pandas as pd
-df = pd.read_csv("Dataset_5.csv")
+import random #5. Genetic Algo
 
-# 1. Total revenue by salesperson per date
-print("1:", df.pivot_table(values='revenue', index='salesperson', columns='date', aggfunc='sum'))
+# Fitness function (maximize)
+def fitness(x):
+    return x**3
 
-# 2. Average revenue per product
-print("2:", df.groupby('product')['revenue'].mean())
+# Parameters
+population_size = 6
+generations = 20
+mutation_rate = 0.1
 
-# 3. Max units sold in one transaction per salesperson
-print("3:", df.groupby('salesperson')['units_sold'].max())
+# Initialize population (random integers)
+population = [random.randint(0, 10) for _ in range(population_size)]
 
-# 4. % revenue by region
-reg = df.groupby('region')['revenue'].sum()
-print("4:", (reg / reg.sum()) * 100)
+for gen in range(generations):
+    # Fitness Evaluation
+    population = sorted(population, key=fitness, reverse=True)
+    print(f"Generation {gen+1}: {population}")
 
-# 5. Salesperson with most transactions
-print("5:", df['salesperson'].value_counts())
+    # Selection (top 2)
+    parent1, parent2 = population[0], population[1]
 
-# 6. Pivot: total revenue + total units sold by salesperson × product
-print("6:", df.pivot_table(values=['revenue','units_sold'],
-                           index='salesperson',
-                           columns='product',
-                           aggfunc='sum'))
+    # Crossover (simple average)
+    child = (parent1 + parent2) // 2
 
-# 7. Units sold per region per date
-print("7:", df.pivot_table(values='units_sold', index='region', columns='date', aggfunc='sum'))
+    # Mutation
+    if random.random() < mutation_rate:
+        child += random.randint(-2, 2)
+
+    # Replace worst individual
+    population[-1] = child
+
+# Final result
+best = max(population, key=fitness)
+
+print("Best Solution:", best)
+print("Maximum Value:", fitness(best))
 
 """
     print(code)
 
 def show_lab6():
     code = """
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# Load datasets
-g = pd.read_csv("Dataset_6_Games.csv")
-p = pd.read_csv("Dataset_6_Players.csv")
-
-# 1. Points change over the season
-print("1. Points over season:\n", g[['Game_ID','Team_Points']])
-plt.plot(g['Game_ID'], g['Team_Points'])
-plt.title("Points Over The Season")
-plt.xlabel("Game Number")
-plt.ylabel("Points Scored")
-plt.show()
-
-# 2. Average attendance
-# Removed as 'attendance' column does not exist
-print("2. Average attendance:", g['Attendance'].mean())
-
-# 3. Player who scored most + bar chart
-player_points = p.groupby('Player')['Points'].sum()
-print("3. Top scorer:", player_points.idxmax())
-player_points.plot(kind='bar')
-plt.title("Total Points by Player")
-plt.xlabel("Player")
-plt.ylabel("Total Points")
-plt.show()
-
-# 4. Games scored above threshold + scoring ranges bar chart
-threshold = 100
-print("4. Games above threshold:", (g['Team_Points'] > threshold).sum())
-
-bins = [80, 90, 100, 110, 120]
-g['range'] = pd.cut(g['Team_Points'], bins)
-g['range'].value_counts().sort_index().plot(kind='bar')
-plt.title("Number of Games in Score Ranges")
-plt.xlabel("Score Range")
-plt.ylabel("Number of Games")
-plt.show()
-
-# 5. Best performance vs opponents + bar chart
-opp_points = g.groupby('Opponent')['Team_Points'].mean()
-print("5. Best opponent:", opp_points.idxmax())
-opp_points.plot(kind='bar')
-plt.title("Average Points vs Opponents")
-plt.xlabel("Opponent")
-plt.ylabel("Avg Points Scored")
-plt.show()
-
-#6. Attendance vs opponents bar chart
-print("6. Attendace vs opponents")
-g.groupby('Opponent')['Attendance'].mean().plot(kind='bar')
-plt.title("Average Attendance vs Opponents")
-plt.xlabel("Opponent")
-plt.ylabel("Average Attendance")
-plt.show()
-
-# 7. Win-Loss record vs points scored (grouped bar chart)
-g['Win_Loss_Indicator'] = g.apply(lambda row: 'Win' if row['Team_Points'] > row['Opponent_Points'] else 'Loss', axis=1)
-wl_points = g.groupby('Win_Loss_Indicator')['Team_Points'].mean()
-wl_points.plot(kind='bar')
-plt.title("Average Points: Wins vs Losses")
-plt.xlabel("Win / Loss")
-plt.ylabel("Avg Points")
-plt.show()
+import random #6. Grey wolf
+ 
+def fitness(x):
+    return x ** 2
+ 
+# Parameters
+WOLVES, ITERS = 5, 20
+ 
+wolves = [random.uniform(-10, 10) for _ in range(WOLVES)]
+ 
+for t in range(ITERS):
+    wolves.sort(key=fitness)
+    alpha, beta, delta = wolves[0], wolves[1], wolves[2]
+ 
+    a = 2 - t * (2 / ITERS)  # decreases from 2 to 0
+ 
+    new_wolves = []
+    for w in wolves:
+        X_new = 0
+        for leader in [alpha, beta, delta]:
+            r1, r2 = random.random(), random.random()
+            A = 2 * a * r1 - a
+            C = 2 * r2
+            D = abs(C * leader - w)
+            X_new += leader - A * D
+        new_wolves.append(X_new / 3)
+ 
+    wolves = new_wolves
+    print(f"Iter {t+1:2d} | Alpha: {round(alpha,4):8.4f} | Best f(x): {round(fitness(alpha),6):.6f}")
+ 
+print("=" * 45)
+print(f"Best Position : {round(alpha, 4)}")
+print(f"Minimum Value : {round(fitness(alpha), 6)}")
 """
     print(code)
 
 def show_lab7():
     code = """
-#program 7
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np #IWD
 
-df = pd.read_csv("Dataset_7.csv")
+n = 5
+soil = np.ones((n, n))
 
-df['date'] = pd.to_datetime(df['date'])
-df['day']  = df['date'].dt.day_name()
+# Distance matrix (example)
+dist = np.random.randint(1, 10, (n, n))
 
-# 1. Heatmap: trips by day of week and base (no hours available)
-p1 = df.pivot_table(values='trips', index='day', columns='dispatching_base_number', aggfunc='sum')
-sns.heatmap(p1); plt.title("Heatmap: Trips by Day & Base"); plt.show()
+def select_next(current, visited):
+    probs = [1/soil[current][j] if j not in visited else 0 for j in range(n)]
+    probs = np.array(probs) / sum(probs)
+    return int(np.random.choice(range(n), p=probs))
 
-# 2. Line chart: trips across a month (example: January)
-jan = df[df['date'].dt.month == 1]
-jan.groupby(jan['date'].dt.date)['trips'].sum().plot()
-plt.title("Trips Trend - January"); plt.ylabel("Trips"); plt.show()
+best_path, best_cost = [], float('inf')
 
-# 3. Bubble chart: total trips per dispatching base
-reg = df.groupby('dispatching_base_number')['trips'].sum()
+for it in range(10):
+    print(f"\nIter {it+1}")
+    for i in range(n):
+        visited, current = [i], i
+        cost = 0
 
-plt.figure(figsize=(10,6))
-plt.scatter(reg.index, reg.values, s=reg.values*0.1)
-plt.title("Bubble Chart: Trips by Dispatching Base")
-plt.xlabel("Dispatching Base")
-plt.ylabel("Total Trips")
-plt.show()
+        while len(visited) < n:
+            nxt = select_next(current, visited)
+            cost += dist[current][nxt]   # real cost
+            soil[current][nxt] += 0.1
+            visited.append(nxt)
+            current = nxt
+
+        print(f"Start {i}: {visited} | Cost: {cost}")
+
+        if cost < best_cost:
+            best_cost, best_path = cost, visited
+
+    print(f"Best so far: {best_path} | Cost: {best_cost}")
+
+print("\nFinal Best Path:", best_path)
+print("Final Cost:", best_cost)
 
 """
     print(code)
 
 def show_lab8():
     code = """
-#program 8
-import pandas as pd
-import matplotlib.pyplot as plt
-
-df = pd.read_csv("Dataset_8.csv")
-
-# 1. Bar chart: survival rate by Pclass
-df.groupby('Pclass')['Survived'].mean().plot(kind='bar')
-plt.title("Survival Rate by Passenger Class")
-plt.ylabel("Survival Rate")
-plt.show()
-
-# 2. Pie chart: survivors vs non-survivors
-df['Survived'].value_counts().plot(kind='pie', autopct='%1.1f%%')
-plt.title("Survivors vs Non-Survivors")
-plt.ylabel("")
-plt.show()
-
-# 3. Stacked bar chart: survivors vs non-survivors by Pclass & Sex
-tab = df.groupby(['Pclass','Sex'])['Survived'].value_counts().unstack().fillna(0)
-tab.plot(kind='bar', stacked=True)
-plt.title("Survival Count by Class & Sex")
-plt.ylabel("Count")
-plt.show()
+import random, math #8.Firefly
+ 
+def fitness(x):
+    return x**2 - 10 * math.cos(2 * math.pi * x) + 10
+ 
+# Parameters
+N, ITERS = 10, 20
+ALPHA, BETA0, GAMMA = 0.5, 1, 0.5  # more randomness, less absorption = more exploration
+ 
+fireflies = [random.uniform(-10, 10) for _ in range(N)]
+ 
+global_best = min(fireflies, key=fitness)
+ 
+for t in range(ITERS):
+    for i in range(N):
+        for j in range(N):
+            if fitness(fireflies[j]) < fitness(fireflies[i]):
+                r = abs(fireflies[i] - fireflies[j])
+                beta = BETA0 * math.exp(-GAMMA * r**2)
+                fireflies[i] += beta * (fireflies[j] - fireflies[i]) + ALPHA * (random.random() - 0.5)
+ 
+    curr_best = min(fireflies, key=fitness)
+    if fitness(curr_best) < fitness(global_best):
+        global_best = curr_best
+ 
+    print(f"Iter {t+1:2d} | Curr x: {round(curr_best,4):8.4f} | f(x): {round(fitness(curr_best),4):7.4f} | Global Best f(x): {round(fitness(global_best),4):.4f}")
+ 
+print("=" * 55)
+print(f"Best Position : {round(global_best, 4)}")
+print(f"Minimum Value : {round(fitness(global_best), 4)}")
 
 """
     print(code)
@@ -339,40 +382,36 @@ plt.show()
 
 def show_lab9():
     code = """
-#program 9
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import random
 
-df = pd.read_csv("Dataset_9.csv")
+# 9. ARTIFICIAL BEE COLONY
 
-# 1. Scatter plot: GrLivArea vs SalePrice
-plt.scatter(df['GrLivArea'], df['SalePrice'])
-plt.xlabel("GrLivArea"); plt.ylabel("SalePrice")
-plt.title("GrLivArea vs SalePrice")
-plt.show()
+def fitness(x):
+    return x**2  # Objective function: minimize x^2
 
-# 2. Heatmap of correlations
-num_cols = ['GrLivArea','OverallQual','TotalBsmtSF','SalePrice','YearBuilt']
-sns.heatmap(df[num_cols].corr(), annot=True)
-plt.title("Correlation Heatmap")
-plt.show()
+# Initialize random solutions (food sources)
+solutions = [random.uniform(-10, 10) for _ in range(5)]
 
-# 3. Bubble chart: size = OverallQual
+for t in range(20):  # Number of iterations (cycles)
+    for i in range(len(solutions)):
+        # Select a random neighbor solution
+        k = random.randint(0, len(solutions) - 1)
+        
+        # Generate a new candidate solution
+        phi = random.uniform(-1, 1)
+        new_solution = solutions[i] + phi * (solutions[i] - solutions[k])
+        
+        # Greedy selection: keep the better solution
+        if fitness(new_solution) < fitness(solutions[i]):
+            solutions[i] = new_solution
 
-plt.scatter(
-    df['GrLivArea'], df['SalePrice'],
-    s=df['OverallQual']*20,            # BIG bubbles
-    c=df['YearBuilt'], cmap='viridis',   # color = YearBuilt
-    alpha=0.5
-)
-plt.xlabel("GrLivArea")
-plt.ylabel("SalePrice")
-plt.title("Bubble Chart: OverallQual(size) & YearBuilt(color)")
-plt.colorbar(label="YearBuilt")
-plt.xticks(rotation=90)
-plt.show()
+    # Find best solution in current population
+    best = min(solutions, key=fitness)
 
+    print(f"[ABC] Iter {t+1:2d} | Best position: {best:.4f} | Minimum value: {fitness(best):.4f}")
+
+# Final result
+print(f"\nABC Result: Best position = {best:.4f}, Minimum value = {fitness(best):.4f}")
 
 
 
